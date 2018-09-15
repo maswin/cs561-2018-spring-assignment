@@ -1,7 +1,8 @@
-INPUT_FILE_NAME = "input3.txt"
-OUTPUT_FILE_NAME = "output3.txt"
+INPUT_FILE_NAME = "input.txt"
+OUTPUT_FILE_NAME = "output.txt"
 ANS = []
-max_collected_points = 0
+MAX_COLLECTED_POINTS = 0
+MAX_ACHIEVABLE = []
 
 
 def visualize_grids(grids):
@@ -57,11 +58,15 @@ def is_same_row(new_police_coordinate, coordinate):
 def place_police_officers_util(grid_size, points_grid, placed_police_officers_coordinate, number_of_police_officers,
                                row, collected_points):
     remaining_police = number_of_police_officers - len(placed_police_officers_coordinate)
+
+    global MAX_COLLECTED_POINTS
+    if row < grid_size and (collected_points + MAX_ACHIEVABLE[row]) <= MAX_COLLECTED_POINTS:
+        return
+
     if remaining_police == 0:
-        global max_collected_points
         global ANS
-        if collected_points > max_collected_points:
-            max_collected_points = collected_points
+        if collected_points > MAX_COLLECTED_POINTS:
+            MAX_COLLECTED_POINTS = collected_points
             ANS = placed_police_officers_coordinate[:]
 
     if 0 < remaining_police <= (grid_size - row) and row < grid_size:
@@ -83,6 +88,10 @@ def place_police_officers_util(grid_size, points_grid, placed_police_officers_co
 
 
 def place_police_officers(grid_size, points_grid, number_of_police_officers):
+    global MAX_ACHIEVABLE
+    MAX_ACHIEVABLE = [max(grid) for grid in points_grid]
+    for i in range(grid_size - 2, -1, -1):
+        MAX_ACHIEVABLE[i] += MAX_ACHIEVABLE[i+1]
     placed_police_officers_coordinate = []
     return place_police_officers_util(grid_size, points_grid, placed_police_officers_coordinate,
                                       number_of_police_officers, 0, 0)
@@ -90,7 +99,7 @@ def place_police_officers(grid_size, points_grid, number_of_police_officers):
 
 def write_result_to_output(result):
     output_file = open(OUTPUT_FILE_NAME, 'w')
-    output_file.write(result)
+    output_file.write(str(result))
     output_file.close()
 
 
@@ -119,10 +128,10 @@ def assert_output(max_points, pg):
 def run_homework():
     (grid_size, number_of_police_officers, all_scooter_positions) = get_input()
     points_grid = construct_points_grid(grid_size, all_scooter_positions)
-    visualize_grids(points_grid)
+    # visualize_grids(points_grid)
     place_police_officers(grid_size, points_grid, number_of_police_officers)
-    assert_output(max_collected_points, points_grid)
-    # write_result_to_output(max_collected_points)
+    # assert_output(MAX_COLLECTED_POINTS, points_grid)
+    write_result_to_output(MAX_COLLECTED_POINTS)
 
 
 if __name__ == "__main__":
