@@ -77,9 +77,9 @@ def place_police_officers_util(grid_size, points_grid, placed_police_officers_co
                                            collected_points + points_grid[row][column])
                 placed_police_officers_coordinate.pop()
 
-            # Search without placing a police here
-            place_police_officers_util(grid_size, points_grid, placed_police_officers_coordinate,
-                                       number_of_police_officers, row + 1, collected_points)
+        # Search without placing a police here
+        place_police_officers_util(grid_size, points_grid, placed_police_officers_coordinate, number_of_police_officers,
+                                   row + 1, collected_points)
 
 
 def place_police_officers(grid_size, points_grid, number_of_police_officers):
