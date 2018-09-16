@@ -60,7 +60,8 @@ def place_police_officers_util(grid_size, points_grid, placed_police_officers_co
     remaining_police = number_of_police_officers - len(placed_police_officers_coordinate)
 
     global MAX_COLLECTED_POINTS
-    if row < grid_size and (collected_points + MAX_ACHIEVABLE[row]) <= MAX_COLLECTED_POINTS:
+    if row < grid_size and (collected_points + sum(
+            sorted(MAX_ACHIEVABLE[row:], reverse=True)[:remaining_police])) <= MAX_COLLECTED_POINTS:
         return
 
     if remaining_police == 0:
@@ -90,8 +91,6 @@ def place_police_officers_util(grid_size, points_grid, placed_police_officers_co
 def place_police_officers(grid_size, points_grid, number_of_police_officers):
     global MAX_ACHIEVABLE
     MAX_ACHIEVABLE = [max(grid) for grid in points_grid]
-    for i in range(grid_size - 2, -1, -1):
-        MAX_ACHIEVABLE[i] += MAX_ACHIEVABLE[i+1]
     placed_police_officers_coordinate = []
     return place_police_officers_util(grid_size, points_grid, placed_police_officers_coordinate,
                                       number_of_police_officers, 0, 0)
