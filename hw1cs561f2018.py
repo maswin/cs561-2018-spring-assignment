@@ -2,9 +2,12 @@ INPUT_FILE_NAME = "input.txt"
 OUTPUT_FILE_NAME = "output.txt"
 ANS = []
 MAX_COLLECTED_POINTS = 0
-MAX_ACHIEVABLE = []
+MAX_ACHIEVABLE = [[]]
 SORTED_COLUMNS = [[]]
 SORTED_ROWS = []
+SLASH = []
+BACK_SLASH = []
+COLS = []
 
 
 def visualize_grids(grids):
@@ -36,6 +39,23 @@ def construct_points_grid(grid_size, all_scooter_positions):
     return points_grid
 
 
+def is_position_safe_opt(coordinate, grid_size):
+    return COLS[coordinate[1]] and SLASH[coordinate[0] - coordinate[1] + grid_size - 1] and BACK_SLASH[
+        coordinate[0] + coordinate[1]]
+
+
+def make_safe(coordinate, grid_size):
+    COLS[coordinate[1]] = True
+    SLASH[coordinate[0] - coordinate[1] + grid_size - 1] = True
+    BACK_SLASH[coordinate[0] + coordinate[1]] = True
+
+
+def make_un_safe(coordinate, grid_size):
+    COLS[coordinate[1]] = False
+    SLASH[coordinate[0] - coordinate[1] + grid_size - 1] = False
+    BACK_SLASH[coordinate[0] + coordinate[1]] = False
+
+
 def is_position_safe(placed_police_officers_coordinate, new_police_coordinate):
     for coordinate in placed_police_officers_coordinate:
         if is_same_row(new_police_coordinate, coordinate) or \
@@ -62,28 +82,28 @@ def place_police_officers_util(grid_size, points_grid, placed_police_officers_co
     remaining_police = number_of_police_officers - len(placed_police_officers_coordinate)
 
     global MAX_COLLECTED_POINTS
-    if row < grid_size and (collected_points + sum(
-            sorted(MAX_ACHIEVABLE[row:], reverse=True)[:remaining_police])) <= MAX_COLLECTED_POINTS:
+    if row < grid_size and (collected_points + MAX_ACHIEVABLE[row][remaining_police - 1]) <= MAX_COLLECTED_POINTS:
         return
 
     if remaining_police == 0:
-        global ANS
+        # global ANS
         if collected_points > MAX_COLLECTED_POINTS:
             MAX_COLLECTED_POINTS = collected_points
-            ANS = placed_police_officers_coordinate[:]
+            # ANS = placed_police_officers_coordinate[:]
 
     if 0 < remaining_police <= (grid_size - row) and row < grid_size:
         for column_index in range(grid_size):
             column = SORTED_COLUMNS[row][column_index]
             # Search by placing a police here
-            if is_position_safe(
-                    placed_police_officers_coordinate,
-                    (row, column)):
-                placed_police_officers_coordinate.append((row, column))
+            new_coord = (row, column)
+            if is_position_safe_opt(new_coord, grid_size):
+                placed_police_officers_coordinate.append(new_coord)
+                make_un_safe(new_coord, grid_size)
                 place_police_officers_util(grid_size, points_grid,
                                            placed_police_officers_coordinate,
                                            number_of_police_officers, row + 1,
                                            collected_points + points_grid[row][column])
+                make_safe(new_coord, grid_size)
                 placed_police_officers_coordinate.pop()
 
         # Search without placing a police here
@@ -93,13 +113,25 @@ def place_police_officers_util(grid_size, points_grid, placed_police_officers_co
 
 def place_police_officers(grid_size, points_grid, number_of_police_officers):
     global MAX_ACHIEVABLE
-    MAX_ACHIEVABLE = [max(grid) for grid in points_grid]
+    max_per_column = [max(grid) for grid in points_grid]
 
-    # global SORTED_ROWS
-    # SORTED_ROWS = get_sorted_rows(grid_size)
+    MAX_ACHIEVABLE = [[0] * number_of_police_officers for x in range(grid_size)]
+    for row in range(grid_size):
+        for remaining_police in range(number_of_police_officers):
+            MAX_ACHIEVABLE[row][remaining_police] = sum(
+                sorted(max_per_column[row:], reverse=True)[:remaining_police+1])
 
     global SORTED_COLUMNS
     SORTED_COLUMNS = get_sorted_columns(points_grid, grid_size)
+
+    global SLASH
+    SLASH = [True] * ((2 * grid_size) - 1)
+
+    global BACK_SLASH
+    BACK_SLASH = [True] * ((2 * grid_size) - 1)
+
+    global COLS
+    COLS = [True] * grid_size
 
     placed_police_officers_coordinate = []
     return place_police_officers_util(grid_size, points_grid, placed_police_officers_coordinate,
