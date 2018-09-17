@@ -3,6 +3,8 @@ OUTPUT_FILE_NAME = "output.txt"
 ANS = []
 MAX_COLLECTED_POINTS = 0
 MAX_ACHIEVABLE = []
+SORTED_COLUMNS = [[]]
+SORTED_ROWS = []
 
 
 def visualize_grids(grids):
@@ -71,7 +73,8 @@ def place_police_officers_util(grid_size, points_grid, placed_police_officers_co
             ANS = placed_police_officers_coordinate[:]
 
     if 0 < remaining_police <= (grid_size - row) and row < grid_size:
-        for column in range(grid_size):
+        for column_index in range(grid_size):
+            column = SORTED_COLUMNS[row][column_index]
             # Search by placing a police here
             if is_position_safe(
                     placed_police_officers_coordinate,
@@ -91,6 +94,13 @@ def place_police_officers_util(grid_size, points_grid, placed_police_officers_co
 def place_police_officers(grid_size, points_grid, number_of_police_officers):
     global MAX_ACHIEVABLE
     MAX_ACHIEVABLE = [max(grid) for grid in points_grid]
+
+    # global SORTED_ROWS
+    # SORTED_ROWS = get_sorted_rows(grid_size)
+
+    global SORTED_COLUMNS
+    SORTED_COLUMNS = get_sorted_columns(points_grid, grid_size)
+
     placed_police_officers_coordinate = []
     return place_police_officers_util(grid_size, points_grid, placed_police_officers_coordinate,
                                       number_of_police_officers, 0, 0)
@@ -102,7 +112,17 @@ def write_result_to_output(result):
     output_file.close()
 
 
+def get_sorted_columns(points_grid, grid_size):
+    return [sorted(range(grid_size), key=lambda k: grid[k], reverse=True) for grid in points_grid]
+
+
+def get_sorted_rows(grid_size):
+    return sorted(range(grid_size), key=lambda k: MAX_ACHIEVABLE[k], reverse=True)
+
+
 def print_ans(pg):
+    print("Sorted rows : " + str(SORTED_ROWS))
+    print("Sorted columns : " + str(SORTED_COLUMNS))
     print("Answer : ")
     print(ANS)
     print(" + ".join([str(pg[a[0]][a[1]]) for a in ANS]) + " = " + str(sum([pg[a[0]][a[1]] for a in ANS])))
