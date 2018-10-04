@@ -1,5 +1,5 @@
-INPUT_FILE_NAME = "input.txt"
-OUTPUT_FILE_NAME = "output.txt"
+INPUT_FILE_NAME = "io/input.txt"
+OUTPUT_FILE_NAME = "io/output.txt"
 ANS = []
 MAX_COLLECTED_POINTS = 0
 MAX_ACHIEVABLE = [[]]
@@ -143,17 +143,17 @@ def assert_output(max_points, pg):
     f = open(OUTPUT_FILE_NAME, "r")
     expected_output = int(f.readline())
     print("Expected output : " + str(expected_output))
-    # assert max_points == expected_output
+    assert max_points == expected_output
     f.close()
 
 
 def run_homework():
     (grid_size, number_of_police_officers, all_scooter_positions) = get_input()
     points_grid = construct_points_grid(grid_size, all_scooter_positions)
-    # visualize_grids_util(points_grid)
+    visualize_grids_util(points_grid)
     place_police_officers(grid_size, points_grid, number_of_police_officers)
-    # assert_output(MAX_COLLECTED_POINTS, points_grid)
-    write_result_to_output(MAX_COLLECTED_POINTS)
+    assert_output(MAX_COLLECTED_POINTS, points_grid)
+    # write_result_to_output(MAX_COLLECTED_POINTS)
 
 
 if __name__ == "__main__":
