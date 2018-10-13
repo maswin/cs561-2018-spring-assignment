@@ -89,12 +89,7 @@ class Housing:
     def is_applicant_compatible(self, applicant):
         return self.is_compatible(applicant)
 
-    def can_accommodate(self, applicant):
-        return self.is_compatible(applicant) and self.is_days_available(applicant.days_required)
-
     def get_efficiency(self):
-        # return sum([self.number_of_resources - x for x in self.availability]) / (
-        #         self.number_of_resources * NUMBER_OF_DAYS_IN_WEEK * 1.0)
         return sum([self.number_of_resources - x for x in self.availability])
 
     def __repr__(self):
@@ -110,8 +105,6 @@ class MinMax:
         self.lahsa = lahsa
         self.spla_domain, self.lahsa_domain = self.filter_available_compatible_applicants()
         self.available_applicant_ids = self._get_available_domain_ids()
-        self.spla_done_picking = False
-        self.lahsa_done_picking = False
 
     def filter_available_compatible_applicants(self):
         spla_existing = set([applicant.id for applicant in self.spla.pre_enrolled_applicants])
@@ -122,76 +115,90 @@ class MinMax:
         lahsa_domain = [applicant for applicant in self.domain if
                         self.lahsa.is_compatible(applicant) and (applicant.id not in spla_existing) and (
                                 applicant.id not in lahsa_existing)]
-        print("SPLA Domain " + str(spla_domain))
-        print("LAHSA Domain " + str(lahsa_domain))
+        # print("SPLA Domain " + str(spla_domain))
+        # print("LAHSA Domain " + str(lahsa_domain))
         return spla_domain, lahsa_domain
 
-    def spla_picks(self, spla_accumulator, lahsa_accumulator, chance):
-        best_applicant = None
-        max_efficiency = spla_accumulator
+    def pick_alone(self, housing, domain):
+        best_score = -1
+        for applicant in domain:
+            if applicant.id in self.available_applicant_ids and housing.is_days_available(applicant.days_required):
+                # Add to stack
+                housing.add_new_applicant(applicant)
+                self.available_applicant_ids.remove(applicant.id)
+
+                # Perform recursion
+                score = self.pick_alone(housing, domain)
+                if score > best_score:
+                    best_score = score
+
+                # Remove from stack
+                housing.remove_last_applicant()
+                self.available_applicant_ids.add(applicant.id)
+
+        # Base case
+        if best_score == -1:
+            return housing.get_efficiency()
+        return best_score
+
+    def spla_picks(self):
+        best_move = None
+        best_spla_score = 0
+        best_lahsa_score = 0
         for applicant in self.spla_domain:
-            if applicant.id in self.available_applicant_ids and self.spla.can_accommodate(applicant):
+            if applicant.id in self.available_applicant_ids and self.spla.is_days_available(applicant.days_required):
+                # Add to stack
                 self.spla.add_new_applicant(applicant)
                 self.available_applicant_ids.remove(applicant.id)
-                if self.lahsa_done_picking:
-                    (move, spla_efficiency, lahsa_efficiency) = self.spla_picks(
-                        spla_accumulator + applicant.number_of_days, lahsa_accumulator, chance + 1)
-                else:
-                    (move, spla_efficiency, lahsa_efficiency) = self.lahsa_picks(
-                        spla_accumulator + applicant.number_of_days, lahsa_accumulator, chance + 1)
-                print(str(chance) + " Inter SPLA : " + str(spla_efficiency) + " id : " + str(applicant.id))
-                if spla_efficiency > max_efficiency:
-                    max_efficiency = spla_efficiency
-                    best_applicant = applicant
+
+                # Perform recursion
+                (move, spla_score, lahsa_score) = self.lasha_picks()
+                if spla_score > best_spla_score:
+                    best_spla_score = spla_score
+                    best_lahsa_score = lahsa_score
+                    best_move = applicant
+
+                # Remove from stack
                 self.spla.remove_last_applicant()
                 self.available_applicant_ids.add(applicant.id)
-        if not best_applicant:
-            self.spla_done_picking = True
-            if not self.lahsa_done_picking:
-                return self.lahsa_picks(spla_accumulator,
-                                        lahsa_accumulator,
-                                        chance + 1)
-        else:
-            self.spla_done_picking = False
-            print(str(chance) + " SPLA : " + str(max_efficiency) + " id : " + str(best_applicant.id))
-        return best_applicant, max_efficiency, lahsa_accumulator
 
-    def lahsa_picks(self, spla_accumulator, lahsa_accumulator, chance):
-        best_applicant = None
-        max_efficiency = lahsa_accumulator
+        # Base case
+        if not best_move:
+            best_spla_score = self.spla.get_efficiency()
+            best_lahsa_score = self.pick_alone(self.lahsa, self.lahsa_domain)
+
+        return best_move, best_spla_score, best_lahsa_score
+
+    def lasha_picks(self):
+        best_move = None
+        best_spla_score = 0
+        best_lahsa_score = 0
         for applicant in self.lahsa_domain:
-            if applicant.id in self.available_applicant_ids and self.lahsa.can_accommodate(applicant):
+            if applicant.id in self.available_applicant_ids and self.spla.is_days_available(applicant.days_required):
+                # Add to stack
                 self.lahsa.add_new_applicant(applicant)
                 self.available_applicant_ids.remove(applicant.id)
-                print(applicant.number_of_days)
-                if self.spla_done_picking:
-                    (move, spla_efficiency, lahsa_efficiency) = self.lahsa_picks(spla_accumulator,
-                                                                                 lahsa_accumulator + applicant.number_of_days,
-                                                                                 chance + 1)
-                else:
-                    (move, spla_efficiency, lahsa_efficiency) = self.spla_picks(spla_accumulator,
-                                                                                lahsa_accumulator + applicant.number_of_days,
-                                                                                chance + 1)
-                print(str(chance) + "Inter LAHSA : " + str(lahsa_efficiency) + " id : " + str(applicant.id))
-                if lahsa_efficiency > max_efficiency:
-                    max_efficiency = lahsa_efficiency
-                    best_applicant = applicant
+
+                # Perform recursion
+                (move, spla_score, lahsa_score) = self.spla_picks()
+                if lahsa_score > best_lahsa_score:
+                    best_spla_score = spla_score
+                    best_lahsa_score = lahsa_score
+                    best_move = applicant
+
+                # Remove from stack
                 self.lahsa.remove_last_applicant()
                 self.available_applicant_ids.add(applicant.id)
-        if not best_applicant:
-            self.lahsa_done_picking = True
-            if not self.spla_done_picking:
-                return self.spla_picks(spla_accumulator,
-                                       lahsa_accumulator,
-                                       chance + 1)
-        else:
-            self.lahsa_done_picking = False
-            print(str(chance) + " LAHSA : " + str(max_efficiency) + " id : " + str(best_applicant.id))
-        return best_applicant, spla_accumulator, max_efficiency
+
+        # Base case
+        if not best_move:
+            best_spla_score = self.pick_alone(self.spla, self.spla_domain)
+            best_lahsa_score = self.lahsa.get_efficiency()
+
+        return best_move, best_spla_score, best_lahsa_score
 
     def first_move(self):
-        (first_move, spla_efficiency, lahsa_efficiency) = self.spla_picks(0, 0, 1)
-        print("Max efficiency : " + str(spla_efficiency))
+        (first_move, spla_efficiency, lahsa_efficiency) = self.spla_picks()
         return first_move
 
     def _get_available_domain_ids(self):
@@ -209,7 +216,8 @@ def get_input():
     number_of_applicants_chose_by_spla = int(f.readline().strip())
     spla_applicants_ids = [f.readline().strip() for _ in range(number_of_applicants_chose_by_spla)]
 
-    all_applicants = get_all_applicants(f)
+    total_applicants = int(f.readline().strip())
+    all_applicants = [Applicant.parse_applicant(f.readline().strip()) for _ in range(total_applicants)]
 
     application_dictionary = dict([(x.id, x) for x in all_applicants])
 
@@ -217,18 +225,6 @@ def get_input():
     spla_applicants = [application_dictionary[x] for x in spla_applicants_ids]
 
     return number_of_beds, number_of_parking_lot, all_applicants, lahsa_applicants, spla_applicants
-
-
-def get_all_applicants(f):
-    next_line = f.readline().strip()
-    if next_line.isdigit():
-        total_applicants = int(next_line)
-        all_applicants = [Applicant.parse_applicant(f.readline().strip()) for _ in range(total_applicants)]
-    else:
-        all_applicants = []
-        for line in f:
-            all_applicants.append(Applicant.parse_applicant(line.strip()))
-    return all_applicants
 
 
 def write_result_to_output(result):
