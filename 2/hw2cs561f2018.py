@@ -48,92 +48,73 @@ class Applicant:
 
 class Housing:
 
-    def __init__(self, number_of_resources, pre_enrolled_applicants, is_compatible):
+    def __init__(self, name, number_of_resources, pre_enrolled_applicants, unavailable_applicants, all_applicants,
+                 is_compatible):
+        self.name = name
         self.number_of_resources = number_of_resources
         self.availability = [self.number_of_resources] * NUMBER_OF_DAYS_IN_WEEK
-        self.pre_enrolled_applicants = []
-        self.new_applicants = []
         self._process_pre_enrolled_applicants(pre_enrolled_applicants)
-        self.is_compatible = is_compatible
+        self.domain = self._get_domain(all_applicants, is_compatible, pre_enrolled_applicants, unavailable_applicants)
+
+    def _get_domain(self, all_applicants, is_compatible, pre_enrolled_applicants, unavailable_applicants):
+        exclude_domain = set([x.id for x in pre_enrolled_applicants] + [x.id for x in unavailable_applicants])
+        return [x for x in all_applicants if is_compatible(x) and x.id not in exclude_domain]
 
     def _process_pre_enrolled_applicants(self, pre_enrolled_applicants):
         self.pre_enrolled_applicants = pre_enrolled_applicants
         for applicant in self.pre_enrolled_applicants:
-            self.reserve_a_slot(applicant.days_required)
+            self.reserve_a_slot(applicant)
 
-    def add_new_applicant(self, applicant):
-        self.new_applicants.append(applicant)
-        self.reserve_a_slot(applicant.days_required)
-
-    def remove_last_applicant(self):
-        applicant = self.new_applicants.pop()
-        self.free_a_slot(applicant.days_required)
-
-    def reserve_a_slot(self, days_required):
-        for index, is_day_required in enumerate(days_required):
+    def reserve_a_slot(self, applicant):
+        for index, is_day_required in enumerate(applicant.days_required):
             if is_day_required:
                 self.availability[index] -= 1
 
-    def free_a_slot(self, days_booked):
-        for index, is_day_required in enumerate(days_booked):
+    def free_a_slot(self, applicant):
+        for index, is_day_required in enumerate(applicant.days_required):
             if is_day_required:
                 self.availability[index] += 1
 
-    def is_days_available(self, days_required):
-        for index, is_day_required in enumerate(days_required):
+    def is_days_available(self, applicant):
+        for index, is_day_required in enumerate(applicant.days_required):
             if is_day_required:
                 if self.availability[index] < 0:
                     return False
         return True
-
-    def is_applicant_compatible(self, applicant):
-        return self.is_compatible(applicant)
 
     def get_efficiency(self):
         return sum([self.number_of_resources - x for x in self.availability])
 
     def __repr__(self):
         return "\n{\n Resources available : " + str(self.availability) + "\n Pre enrolled : " + str(
-            self.pre_enrolled_applicants) + "\n Newly enrolled : " + str(
-            self.new_applicants) + "\n Efficiency : " + str(self.get_efficiency()) + " \n } \n"
+            self.pre_enrolled_applicants) + "\n Domain : " + str(
+            self.domain) + "\n Efficiency : " + str(self.get_efficiency()) + " \n } \n"
 
 
 class MinMax:
-    def __init__(self, spla, lahsa, domain):
-        self.domain = domain
+    def __init__(self, spla, lahsa):
         self.spla = spla
         self.lahsa = lahsa
-        self.spla_domain, self.lahsa_domain = self.filter_available_compatible_applicants()
         self.available_applicant_ids = self._get_available_domain_ids()
 
-    def filter_available_compatible_applicants(self):
-        spla_existing = set([applicant.id for applicant in self.spla.pre_enrolled_applicants])
-        lahsa_existing = set([applicant.id for applicant in self.lahsa.pre_enrolled_applicants])
-        spla_domain = [applicant for applicant in self.domain if
-                       self.spla.is_compatible(applicant) and (applicant.id not in spla_existing) and (
-                               applicant.id not in lahsa_existing)]
-        lahsa_domain = [applicant for applicant in self.domain if
-                        self.lahsa.is_compatible(applicant) and (applicant.id not in spla_existing) and (
-                                applicant.id not in lahsa_existing)]
-        # print("SPLA Domain " + str(spla_domain))
-        # print("LAHSA Domain " + str(lahsa_domain))
-        return spla_domain, lahsa_domain
+    def _get_available_domain_ids(self):
+        return set([x.id for x in self.spla.domain] + [x.id for x in self.lahsa.domain])
 
-    def pick_alone(self, housing, domain):
+    def pick_alone(self, housing):
         best_score = -1
-        for applicant in domain:
-            if applicant.id in self.available_applicant_ids and housing.is_days_available(applicant.days_required):
+        for applicant in housing.domain:
+            if applicant.id in self.available_applicant_ids and housing.is_days_available(applicant):
                 # Add to stack
-                housing.add_new_applicant(applicant)
+                housing.reserve_a_slot(applicant)
                 self.available_applicant_ids.remove(applicant.id)
 
                 # Perform recursion
-                score = self.pick_alone(housing, domain)
+                score = self.pick_alone(housing)
                 if score > best_score:
                     best_score = score
 
                 # Remove from stack
-                housing.remove_last_applicant()
+                housing.free_a_slot(applicant)
                 self.available_applicant_ids.add(applicant.id)
 
         # Base case
@@ -141,68 +122,38 @@ class MinMax:
             return housing.get_efficiency()
         return best_score
 
-    def spla_picks(self):
+    def pick_alternatively(self, current_housing, next_housing, chance):
         best_move = None
-        best_spla_score = 0
-        best_lahsa_score = 0
-        for applicant in self.spla_domain:
-            if applicant.id in self.available_applicant_ids and self.spla.is_days_available(applicant.days_required):
+        best_current_housing_score = 0
+        best_next_housing_score = 0
+        for applicant in current_housing.domain:
+            if applicant.id in self.available_applicant_ids and current_housing.is_days_available(applicant):
                 # Add to stack
-                self.spla.add_new_applicant(applicant)
+                current_housing.reserve_a_slot(applicant)
                 self.available_applicant_ids.remove(applicant.id)
 
                 # Perform recursion
-                (move, spla_score, lahsa_score) = self.lasha_picks()
-                if spla_score > best_spla_score:
-                    best_spla_score = spla_score
-                    best_lahsa_score = lahsa_score
+                (move, next_housing_score, current_housing_score) = self.pick_alternatively(next_housing,
+                                                                                            current_housing, chance + 1)
+                if current_housing_score > best_current_housing_score:
+                    best_current_housing_score = current_housing_score
+                    best_next_housing_score = next_housing_score
                     best_move = applicant
 
                 # Remove from stack
-                self.spla.remove_last_applicant()
+                current_housing.free_a_slot(applicant)
                 self.available_applicant_ids.add(applicant.id)
 
         # Base case
         if not best_move:
-            best_spla_score = self.spla.get_efficiency()
-            best_lahsa_score = self.pick_alone(self.lahsa, self.lahsa_domain)
+            best_current_housing_score = current_housing.get_efficiency()
+            best_next_housing_score = self.pick_alone(next_housing)
 
-        return best_move, best_spla_score, best_lahsa_score
-
-    def lasha_picks(self):
-        best_move = None
-        best_spla_score = 0
-        best_lahsa_score = 0
-        for applicant in self.lahsa_domain:
-            if applicant.id in self.available_applicant_ids and self.spla.is_days_available(applicant.days_required):
-                # Add to stack
-                self.lahsa.add_new_applicant(applicant)
-                self.available_applicant_ids.remove(applicant.id)
-
-                # Perform recursion
-                (move, spla_score, lahsa_score) = self.spla_picks()
-                if lahsa_score > best_lahsa_score:
-                    best_spla_score = spla_score
-                    best_lahsa_score = lahsa_score
-                    best_move = applicant
-
-                # Remove from stack
-                self.lahsa.remove_last_applicant()
-                self.available_applicant_ids.add(applicant.id)
-
-        # Base case
-        if not best_move:
-            best_spla_score = self.pick_alone(self.spla, self.spla_domain)
-            best_lahsa_score = self.lahsa.get_efficiency()
-
-        return best_move, best_spla_score, best_lahsa_score
+        return best_move, best_current_housing_score, best_next_housing_score
 
     def first_move(self):
-        (first_move, spla_efficiency, lahsa_efficiency) = self.spla_picks()
+        (first_move, spla_efficiency, lahsa_efficiency) = self.pick_alternatively(self.spla, self.lahsa, 1)
         return first_move
-
-    def _get_available_domain_ids(self):
-        return set([x.id for x in self.spla_domain] + [x.id for x in self.lahsa_domain])
 
 
 def get_input():
@@ -244,12 +195,12 @@ def assert_output(actual_output):
 
 def run_homework():
     (number_of_beds, number_of_parking_lot, all_applicants, lahsa_applicants, spla_applicants) = get_input()
-    lahsa = Housing(number_of_beds, lahsa_applicants,
+    lahsa = Housing("lasha", number_of_beds, lahsa_applicants, spla_applicants, all_applicants,
                     lambda applicant: applicant.is_female and applicant.age >= 17 and not applicant.has_pet)
-    spla = Housing(number_of_parking_lot, spla_applicants,
+    spla = Housing("spla", number_of_parking_lot, spla_applicants, lahsa_applicants, all_applicants,
                    lambda applicant: applicant.has_car and applicant.has_driver_license and not
                    applicant.has_medical_condition)
-    min_max = MinMax(spla, lahsa, all_applicants)
+    min_max = MinMax(spla, lahsa)
     first_applicant = min_max.first_move()
     assert_output(first_applicant.id)
     # write_result_to_output(first_applicant.id)
