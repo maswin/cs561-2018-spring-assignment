@@ -1,5 +1,7 @@
-INPUT_FILE_NAME = "io/input.txt"
-OUTPUT_FILE_NAME = "io/output.txt"
+import bisect
+
+INPUT_FILE_NAME = "io/input4.txt"
+OUTPUT_FILE_NAME = "io/output4.txt"
 NUMBER_OF_DAYS_IN_WEEK = 7
 
 
@@ -33,7 +35,7 @@ class Applicant:
         def parse_days_required(x):
             return [True if val == '1' else False for val in x]
 
-        return Applicant(raw_applicant[0:5],
+        return Applicant(int(raw_applicant[0:5]),
                          is_female(raw_applicant[5:6]),
                          int(raw_applicant[6:9]),
                          is_yes(raw_applicant[9:10]),
@@ -55,6 +57,10 @@ class Housing:
         self.availability = [self.number_of_resources] * NUMBER_OF_DAYS_IN_WEEK
         self._process_pre_enrolled_applicants(pre_enrolled_applicants)
         self.domain = self._get_domain(all_applicants, is_compatible, pre_enrolled_applicants, unavailable_applicants)
+        self.enrolled_applicants = []
+
+    def get_sorted_applicants_as_key(self):
+        return ','.join([str(x) for x in self.enrolled_applicants])
 
     def _get_domain(self, all_applicants, is_compatible, pre_enrolled_applicants, unavailable_applicants):
         exclude_domain = set([x.id for x in pre_enrolled_applicants] + [x.id for x in unavailable_applicants])
@@ -65,12 +71,20 @@ class Housing:
         for applicant in self.pre_enrolled_applicants:
             self.reserve_a_slot(applicant)
 
+    def add_new_applicant(self, applicant):
+        bisect.insort(self.enrolled_applicants, applicant.id)
+        # self.enrolled_applicants.append(applicant.id)
+        self.reserve_a_slot(applicant)
+
     def reserve_a_slot(self, applicant):
         for index, is_day_required in enumerate(applicant.days_required):
             if is_day_required:
                 self.availability[index] -= 1
 
-    def free_a_slot(self, applicant):
+    def remove_applicant(self, applicant):
+        # TODO: Logically pop, but make the code intuitive
+        # self.enrolled_applicants.pop()
+        del self.enrolled_applicants[bisect.bisect(self.enrolled_applicants, applicant.id) - 1]
         for index, is_day_required in enumerate(applicant.days_required):
             if is_day_required:
                 self.availability[index] += 1
@@ -86,7 +100,8 @@ class Housing:
         return sum([self.number_of_resources - x for x in self.availability])
 
     def __repr__(self):
-        return "\n{\n Resources available : " + str(self.availability) + "\n Pre enrolled : " + str(
+        return "\n{\n Name: " + self.name + "\nResources available : " + str(
+            self.availability) + "\n Pre enrolled : " + str(
             self.pre_enrolled_applicants) + "\n Domain : " + str(
             self.domain) + "\n Efficiency : " + str(self.get_efficiency()) + " \n } \n"
 
@@ -96,63 +111,130 @@ class MinMax:
         self.spla = spla
         self.lahsa = lahsa
         self.available_applicant_ids = self._get_available_domain_ids()
+        self.cache = dict()
 
     def _get_available_domain_ids(self):
         return set([x.id for x in self.spla.domain] + [x.id for x in self.lahsa.domain])
 
-    def pick_alone(self, housing):
+    def check_cache(self):
+        spla_key = self.spla.get_sorted_applicants_as_key()
+        lasha_key = self.lahsa.get_sorted_applicants_as_key()
+        if spla_key in self.cache:
+            if lasha_key in self.cache[spla_key]:
+                return self.cache[spla_key][lasha_key]
+        return None
+
+    def add_cache(self, move, spla_score, lasha_score):
+        spla_key = self.spla.get_sorted_applicants_as_key()
+        lasha_key = self.lahsa.get_sorted_applicants_as_key()
+        if spla_key not in self.cache:
+            self.cache[spla_key] = dict()
+        self.cache[spla_key][lasha_key] = (move, spla_score, lasha_score)
+
+    def pick_alone(self, housing, other_score):
+        cache_val = self.check_cache()
+        if cache_val:
+            # print(self.spla.get_sorted_applicants_as_key())
+            (_, spla_score, lasha_score) = cache_val
+            if housing.name == 'spla':
+                return spla_score
+            else:
+                return lasha_score
+
         best_score = -1
         for applicant in housing.domain:
             if applicant.id in self.available_applicant_ids and housing.is_days_available(applicant):
                 # Add to stack
-                housing.reserve_a_slot(applicant)
+                housing.add_new_applicant(applicant)
                 self.available_applicant_ids.remove(applicant.id)
 
                 # Perform recursion
-                score = self.pick_alone(housing)
+                score = self.pick_alone(housing, other_score)
                 if score > best_score:
                     best_score = score
 
                 # Remove from stack
-                housing.free_a_slot(applicant)
+                housing.remove_applicant(applicant)
                 self.available_applicant_ids.add(applicant.id)
 
         # Base case
         if best_score == -1:
-            return housing.get_efficiency()
+            best_score = housing.get_efficiency()
+        if housing.name == 'spla':
+            self.add_cache(None, best_score, other_score)
+        else:
+            self.add_cache(None, other_score, best_score)
         return best_score
 
-    def pick_alternatively(self, current_housing, next_housing, chance):
+    def spla_picks(self, chance):
+        cache_val = self.check_cache()
+        if cache_val:
+            return cache_val
+
         best_move = None
-        best_current_housing_score = 0
-        best_next_housing_score = 0
-        for applicant in current_housing.domain:
-            if applicant.id in self.available_applicant_ids and current_housing.is_days_available(applicant):
+        best_spla_score = 0
+        best_lasha_score = 0
+        for applicant in self.spla.domain:
+            if applicant.id in self.available_applicant_ids and self.spla.is_days_available(applicant):
                 # Add to stack
-                current_housing.reserve_a_slot(applicant)
+                self.spla.add_new_applicant(applicant)
                 self.available_applicant_ids.remove(applicant.id)
 
                 # Perform recursion
-                (move, next_housing_score, current_housing_score) = self.pick_alternatively(next_housing,
-                                                                                            current_housing, chance + 1)
-                if current_housing_score > best_current_housing_score:
-                    best_current_housing_score = current_housing_score
-                    best_next_housing_score = next_housing_score
+                (move, spla_score, lasha_score) = self.lasha_picks(chance + 1)
+                if spla_score > best_spla_score:
+                    best_spla_score = spla_score
+                    best_lasha_score = lasha_score
                     best_move = applicant
 
                 # Remove from stack
-                current_housing.free_a_slot(applicant)
+                self.spla.remove_applicant(applicant)
                 self.available_applicant_ids.add(applicant.id)
 
         # Base case
         if not best_move:
-            best_current_housing_score = current_housing.get_efficiency()
-            best_next_housing_score = self.pick_alone(next_housing)
+            best_spla_score = self.spla.get_efficiency()
+            best_lasha_score = self.pick_alone(self.lahsa, best_spla_score)
 
-        return best_move, best_current_housing_score, best_next_housing_score
+        self.add_cache(best_move, best_spla_score, best_lasha_score)
+        return best_move, best_spla_score, best_lasha_score
+
+    def lasha_picks(self, chance):
+        cache_val = self.check_cache()
+        if cache_val:
+            return cache_val
+
+        best_move = None
+        best_lasha_score = 0
+        best_spla_score = 0
+        for applicant in self.lahsa.domain:
+            if applicant.id in self.available_applicant_ids and self.lahsa.is_days_available(applicant):
+                # Add to stack
+                self.lahsa.add_new_applicant(applicant)
+                self.available_applicant_ids.remove(applicant.id)
+
+                # Perform recursion
+                (move, spla_score, lasha_score) = self.spla_picks(chance + 1)
+                if lasha_score > best_lasha_score:
+                    best_lasha_score = lasha_score
+                    best_spla_score = spla_score
+                    best_move = applicant
+
+                # Remove from stack
+                self.lahsa.remove_applicant(applicant)
+                self.available_applicant_ids.add(applicant.id)
+
+        # Base case
+        if not best_move:
+            best_lasha_score = self.lahsa.get_efficiency()
+            best_spla_score = self.pick_alone(self.spla, best_lasha_score)
+
+        self.add_cache(best_move, best_spla_score, best_lasha_score)
+        return best_move, best_spla_score, best_lasha_score
 
     def first_move(self):
-        (first_move, spla_efficiency, lahsa_efficiency) = self.pick_alternatively(self.spla, self.lahsa, 1)
+        (first_move, spla_efficiency, lahsa_efficiency) = self.spla_picks(1)
+        print("Cache size : " + str(len(self.cache)))
         return first_move
 
 
@@ -162,10 +244,10 @@ def get_input():
     number_of_parking_lot = int(f.readline().strip())
 
     number_of_applicants_chosen_by_lahsa = int(f.readline().strip())
-    lahsa_applicant_ids = [f.readline().strip() for _ in range(number_of_applicants_chosen_by_lahsa)]
+    lahsa_applicant_ids = [int(f.readline().strip()) for _ in range(number_of_applicants_chosen_by_lahsa)]
 
     number_of_applicants_chose_by_spla = int(f.readline().strip())
-    spla_applicants_ids = [f.readline().strip() for _ in range(number_of_applicants_chose_by_spla)]
+    spla_applicants_ids = [int(f.readline().strip()) for _ in range(number_of_applicants_chose_by_spla)]
 
     total_applicants = int(f.readline().strip())
     all_applicants = [Applicant.parse_applicant(f.readline().strip()) for _ in range(total_applicants)]
@@ -185,6 +267,7 @@ def write_result_to_output(result):
 
 
 def assert_output(actual_output):
+    actual_output = str(actual_output).zfill(5)
     print("Actual output : " + str(actual_output))
     f = open(OUTPUT_FILE_NAME, "r")
     expected_output = f.readline()
