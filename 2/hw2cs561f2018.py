@@ -1,4 +1,5 @@
 import bisect
+from itertools import groupby
 
 INPUT_FILE_NAME = "io/input.txt"
 OUTPUT_FILE_NAME = "io/output.txt"
@@ -44,6 +45,9 @@ class Applicant:
                          is_yes(raw_applicant[12:13]),
                          parse_days_required(raw_applicant[13:]))
 
+    def get_key(self):
+        return ''.join(['1' if x else '0' for x in self.days_required])
+
     def _get_number_of_days(self):
         return sum(self.days_required)
 
@@ -57,7 +61,14 @@ class Housing:
         self.availability = [self.number_of_resources] * NUMBER_OF_DAYS_IN_WEEK
         self._process_pre_enrolled_applicants(pre_enrolled_applicants)
         self.domain = self._get_domain(all_applicants, is_compatible, pre_enrolled_applicants, unavailable_applicants)
+        self.clustered_domain = self._construct_clustered_domain()
         self.enrolled_applicants = []
+
+    def _construct_clustered_domain(self):
+        clustered_domain = []
+        for k, g in groupby(self.domain, key=lambda x: x.get_key()):
+            clustered_domain.append(list(g))
+        return clustered_domain
 
     def get_sorted_applicants_as_key(self):
         # Feature Toggle: Sorted applicants
@@ -164,20 +175,22 @@ class MinMax:
         if score != -1:
             best_score = score
         else:
-            for applicant in housing.domain:
-                if applicant.id in self.available_applicant_ids and housing.is_days_available(applicant):
-                    # Add to stack
-                    housing.add_new_applicant(applicant)
-                    self.available_applicant_ids.remove(applicant.id)
+            for applicant_group in housing.clustered_domain:
+                for applicant in applicant_group:
+                    if applicant.id in self.available_applicant_ids and housing.is_days_available(applicant):
+                        # Add to stack
+                        housing.add_new_applicant(applicant)
+                        self.available_applicant_ids.remove(applicant.id)
 
-                    # Perform recursion
-                    score = self.pick_alone(housing, other_score)
-                    if score > best_score:
-                        best_score = score
+                        # Perform recursion
+                        score = self.pick_alone(housing, other_score)
+                        if score > best_score:
+                            best_score = score
 
-                    # Remove from stack
-                    housing.remove_applicant(applicant)
-                    self.available_applicant_ids.add(applicant.id)
+                        # Remove from stack
+                        housing.remove_applicant(applicant)
+                        self.available_applicant_ids.add(applicant.id)
+                        break
 
         # Base case
         if best_score == -1:
@@ -196,22 +209,24 @@ class MinMax:
         best_move = None
         best_spla_score = 0
         best_lasha_score = 0
-        for applicant in self.spla.domain:
-            if applicant.id in self.available_applicant_ids and self.spla.is_days_available(applicant):
-                # Add to stack
-                self.spla.add_new_applicant(applicant)
-                self.available_applicant_ids.remove(applicant.id)
+        for applicant_group in self.spla.clustered_domain:
+            for applicant in applicant_group:
+                if applicant.id in self.available_applicant_ids and self.spla.is_days_available(applicant):
+                    # Add to stack
+                    self.spla.add_new_applicant(applicant)
+                    self.available_applicant_ids.remove(applicant.id)
 
-                # Perform recursion
-                (move, spla_score, lasha_score) = self.lasha_picks(chance + 1)
-                if spla_score > best_spla_score:
-                    best_spla_score = spla_score
-                    best_lasha_score = lasha_score
-                    best_move = applicant
+                    # Perform recursion
+                    (move, spla_score, lasha_score) = self.lasha_picks(chance + 1)
+                    if spla_score > best_spla_score:
+                        best_spla_score = spla_score
+                        best_lasha_score = lasha_score
+                        best_move = applicant
 
-                # Remove from stack
-                self.spla.remove_applicant(applicant)
-                self.available_applicant_ids.add(applicant.id)
+                    # Remove from stack
+                    self.spla.remove_applicant(applicant)
+                    self.available_applicant_ids.add(applicant.id)
+                    break
 
         # Base case
         if not best_move:
@@ -229,22 +244,24 @@ class MinMax:
         best_move = None
         best_lasha_score = 0
         best_spla_score = 0
-        for applicant in self.lahsa.domain:
-            if applicant.id in self.available_applicant_ids and self.lahsa.is_days_available(applicant):
-                # Add to stack
-                self.lahsa.add_new_applicant(applicant)
-                self.available_applicant_ids.remove(applicant.id)
+        for applicant_group in self.lahsa.clustered_domain:
+            for applicant in applicant_group:
+                if applicant.id in self.available_applicant_ids and self.lahsa.is_days_available(applicant):
+                    # Add to stack
+                    self.lahsa.add_new_applicant(applicant)
+                    self.available_applicant_ids.remove(applicant.id)
 
-                # Perform recursion
-                (move, spla_score, lasha_score) = self.spla_picks(chance + 1)
-                if lasha_score > best_lasha_score:
-                    best_lasha_score = lasha_score
-                    best_spla_score = spla_score
-                    best_move = applicant
+                    # Perform recursion
+                    (move, spla_score, lasha_score) = self.spla_picks(chance + 1)
+                    if lasha_score > best_lasha_score:
+                        best_lasha_score = lasha_score
+                        best_spla_score = spla_score
+                        best_move = applicant
 
-                # Remove from stack
-                self.lahsa.remove_applicant(applicant)
-                self.available_applicant_ids.add(applicant.id)
+                    # Remove from stack
+                    self.lahsa.remove_applicant(applicant)
+                    self.available_applicant_ids.add(applicant.id)
+                    break
 
         # Base case
         if not best_move:
