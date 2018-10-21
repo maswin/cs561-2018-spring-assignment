@@ -153,7 +153,6 @@ class MinMax:
     def pick_alone(self, housing, other_score):
         cache_val = self.check_cache()
         if cache_val:
-            # print(self.spla.get_sorted_applicants_as_key())
             (_, spla_score, lasha_score) = cache_val
             if housing.name == 'spla':
                 return spla_score
@@ -257,6 +256,7 @@ class MinMax:
 
     def first_move(self):
         (first_move, spla_efficiency, lahsa_efficiency) = self.spla_picks(1)
+        # print(str(spla_efficiency) + " / " + str(lahsa_efficiency))
         # print("Cache size : " + str(len(self.cache)))
         return first_move
 
@@ -303,7 +303,7 @@ def assert_output(actual_output):
 def run_homework():
     (number_of_beds, number_of_parking_lot, all_applicants, lahsa_applicants, spla_applicants) = get_input()
     lahsa = Housing("lasha", number_of_beds, lahsa_applicants, spla_applicants, all_applicants,
-                    lambda applicant: applicant.is_female and applicant.age >= 17 and not applicant.has_pet)
+                    lambda applicant: applicant.is_female and applicant.age > 17 and not applicant.has_pet)
     spla = Housing("spla", number_of_parking_lot, spla_applicants, lahsa_applicants, all_applicants,
                    lambda applicant: applicant.has_car and applicant.has_driver_license and not
                    applicant.has_medical_condition)
