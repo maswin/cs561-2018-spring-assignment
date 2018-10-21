@@ -1,7 +1,7 @@
 import bisect
 
-INPUT_FILE_NAME = "io/input4.txt"
-OUTPUT_FILE_NAME = "io/output4.txt"
+INPUT_FILE_NAME = "io/input.txt"
+OUTPUT_FILE_NAME = "io/output.txt"
 NUMBER_OF_DAYS_IN_WEEK = 7
 
 
@@ -60,7 +60,25 @@ class Housing:
         self.enrolled_applicants = []
 
     def get_sorted_applicants_as_key(self):
-        return ','.join([str(x) for x in self.enrolled_applicants])
+        # Feature Toggle: Sorted applicants
+        # app = sorted(self.enrolled_applicants)
+        app = self.enrolled_applicants
+        return ','.join([str(x) for x in app])
+
+    def can_accommodate_all_remaining(self, available_applicant_ids):
+        restricted_domain = [x for x in self.domain if x.id in available_applicant_ids]
+        added = []
+        failure = False
+        for applicant in restricted_domain:
+            if self.is_days_available(applicant):
+                self.add_new_applicant(applicant)
+                added.append(applicant)
+            else:
+                failure = True
+        efficiency = self.get_efficiency()
+        for applicant in added:
+            self.remove_applicant(applicant)
+        return efficiency if not failure else -1
 
     def _get_domain(self, all_applicants, is_compatible, pre_enrolled_applicants, unavailable_applicants):
         exclude_domain = set([x.id for x in pre_enrolled_applicants] + [x.id for x in unavailable_applicants])
@@ -72,8 +90,9 @@ class Housing:
             self.reserve_a_slot(applicant)
 
     def add_new_applicant(self, applicant):
-        bisect.insort(self.enrolled_applicants, applicant.id)
+        # Feature Toggle: Sorted applicants
         # self.enrolled_applicants.append(applicant.id)
+        bisect.insort(self.enrolled_applicants, applicant.id)
         self.reserve_a_slot(applicant)
 
     def reserve_a_slot(self, applicant):
@@ -82,7 +101,7 @@ class Housing:
                 self.availability[index] -= 1
 
     def remove_applicant(self, applicant):
-        # TODO: Logically pop, but make the code intuitive
+        # Feature Toggle: Sorted applicants
         # self.enrolled_applicants.pop()
         del self.enrolled_applicants[bisect.bisect(self.enrolled_applicants, applicant.id) - 1]
         for index, is_day_required in enumerate(applicant.days_required):
@@ -142,20 +161,24 @@ class MinMax:
                 return lasha_score
 
         best_score = -1
-        for applicant in housing.domain:
-            if applicant.id in self.available_applicant_ids and housing.is_days_available(applicant):
-                # Add to stack
-                housing.add_new_applicant(applicant)
-                self.available_applicant_ids.remove(applicant.id)
+        score = housing.can_accommodate_all_remaining(self.available_applicant_ids)
+        if score != -1:
+            best_score = score
+        else:
+            for applicant in housing.domain:
+                if applicant.id in self.available_applicant_ids and housing.is_days_available(applicant):
+                    # Add to stack
+                    housing.add_new_applicant(applicant)
+                    self.available_applicant_ids.remove(applicant.id)
 
-                # Perform recursion
-                score = self.pick_alone(housing, other_score)
-                if score > best_score:
-                    best_score = score
+                    # Perform recursion
+                    score = self.pick_alone(housing, other_score)
+                    if score > best_score:
+                        best_score = score
 
-                # Remove from stack
-                housing.remove_applicant(applicant)
-                self.available_applicant_ids.add(applicant.id)
+                    # Remove from stack
+                    housing.remove_applicant(applicant)
+                    self.available_applicant_ids.add(applicant.id)
 
         # Base case
         if best_score == -1:
@@ -234,7 +257,7 @@ class MinMax:
 
     def first_move(self):
         (first_move, spla_efficiency, lahsa_efficiency) = self.spla_picks(1)
-        print("Cache size : " + str(len(self.cache)))
+        # print("Cache size : " + str(len(self.cache)))
         return first_move
 
 
@@ -261,6 +284,7 @@ def get_input():
 
 
 def write_result_to_output(result):
+    result = str(result).zfill(5)
     output_file = open(OUTPUT_FILE_NAME, 'w')
     output_file.write(str(result))
     output_file.close()
