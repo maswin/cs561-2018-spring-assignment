@@ -2,6 +2,7 @@ import bisect
 from itertools import groupby
 
 INPUT_FILE_NAME = "io/input.txt"
+# INPUT_FILE_NAME = "/Users/aswin/Documents/ai_hw/test/input0338.txt"
 OUTPUT_FILE_NAME = "io/output.txt"
 NUMBER_OF_DAYS_IN_WEEK = 7
 
@@ -9,7 +10,8 @@ NUMBER_OF_DAYS_IN_WEEK = 7
 class Applicant:
 
     def __init__(self, id, is_female, age, has_pet, has_medical_condition, has_car, has_driver_license, days_required):
-        self.days_required = days_required
+        self.key = days_required
+        self.days_required = self.parse_days_required(days_required)
         self.has_driver_license = has_driver_license
         self.has_car = has_car
         self.has_medical_condition = has_medical_condition
@@ -33,9 +35,6 @@ class Applicant:
         def is_female(x):
             return x.lower() == 'f'
 
-        def parse_days_required(x):
-            return [True if val == '1' else False for val in x]
-
         return Applicant(int(raw_applicant[0:5]),
                          is_female(raw_applicant[5:6]),
                          int(raw_applicant[6:9]),
@@ -43,10 +42,14 @@ class Applicant:
                          is_yes(raw_applicant[10:11]),
                          is_yes(raw_applicant[11:12]),
                          is_yes(raw_applicant[12:13]),
-                         parse_days_required(raw_applicant[13:]))
+                         raw_applicant[13:])
 
     def get_key(self):
         return ''.join(['1' if x else '0' for x in self.days_required])
+
+    @staticmethod
+    def parse_days_required(x):
+        return [True if val == '1' else False for val in x]
 
     def _get_number_of_days(self):
         return sum(self.days_required)
@@ -66,7 +69,7 @@ class Housing:
 
     def _construct_clustered_domain(self):
         clustered_domain = []
-        for k, g in groupby(self.domain, key=lambda x: x.get_key()):
+        for k, g in groupby(self.domain, key=lambda x: x.key):
             clustered_domain.append(list(g))
         return clustered_domain
 
@@ -93,7 +96,8 @@ class Housing:
 
     def _get_domain(self, all_applicants, is_compatible, pre_enrolled_applicants, unavailable_applicants):
         exclude_domain = set([x.id for x in pre_enrolled_applicants] + [x.id for x in unavailable_applicants])
-        return [x for x in all_applicants if is_compatible(x) and x.id not in exclude_domain]
+        return sorted([x for x in all_applicants if is_compatible(x) and x.id not in exclude_domain],
+                      key=lambda y: y.id)
 
     def _process_pre_enrolled_applicants(self, pre_enrolled_applicants):
         self.pre_enrolled_applicants = pre_enrolled_applicants
@@ -313,7 +317,7 @@ def assert_output(actual_output):
     f = open(OUTPUT_FILE_NAME, "r")
     expected_output = f.readline()
     print("Expected output : " + str(expected_output))
-    assert actual_output == expected_output
+    # assert actual_output == expected_output
     f.close()
 
 
