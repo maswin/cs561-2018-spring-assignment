@@ -2,7 +2,7 @@ import bisect
 from itertools import groupby
 
 INPUT_FILE_NAME = "io/input.txt"
-# INPUT_FILE_NAME = "/Users/aswin/Documents/ai_hw/test/input0338.txt"
+# INPUT_FILE_NAME = "/Users/aswin/Documents/ai_hw/test/input0440.txt"
 OUTPUT_FILE_NAME = "io/output.txt"
 NUMBER_OF_DAYS_IN_WEEK = 7
 
@@ -66,6 +66,7 @@ class Housing:
         self.domain = self._get_domain(all_applicants, is_compatible, pre_enrolled_applicants, unavailable_applicants)
         self.clustered_domain = self._construct_clustered_domain()
         self.enrolled_applicants = []
+        self.max = self.number_of_resources * NUMBER_OF_DAYS_IN_WEEK
 
     def _construct_clustered_domain(self):
         clustered_domain = []
@@ -195,6 +196,8 @@ class MinMax:
                         housing.remove_applicant(applicant)
                         self.available_applicant_ids.add(applicant.id)
                         break
+                if best_score == housing.max:
+                    break
 
         # Base case
         if best_score == -1:
@@ -231,6 +234,8 @@ class MinMax:
                     self.spla.remove_applicant(applicant)
                     self.available_applicant_ids.add(applicant.id)
                     break
+            if best_spla_score == self.spla.max:
+                break
 
         # Base case
         if not best_move:
@@ -266,6 +271,8 @@ class MinMax:
                     self.lahsa.remove_applicant(applicant)
                     self.available_applicant_ids.add(applicant.id)
                     break
+            if best_lasha_score == self.lahsa.max:
+                break
 
         # Base case
         if not best_move:
