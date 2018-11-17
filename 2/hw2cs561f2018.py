@@ -1,9 +1,9 @@
 import bisect
 from itertools import groupby
-
-INPUT_FILE_NAME = "io/input.txt"
+# 1 6 8
+INPUT_FILE_NAME = "io/grading_case/input1.txt"
 # INPUT_FILE_NAME = "/Users/aswin/Documents/ai_hw/test/input0440.txt"
-OUTPUT_FILE_NAME = "io/output.txt"
+OUTPUT_FILE_NAME = "io/grading_case/output1.txt"
 NUMBER_OF_DAYS_IN_WEEK = 7
 
 
@@ -127,7 +127,7 @@ class Housing:
     def is_days_available(self, applicant):
         for index, is_day_required in enumerate(applicant.days_required):
             if is_day_required:
-                if self.availability[index] < 0:
+                if self.availability[index] == 0:
                     return False
         return True
 
@@ -322,7 +322,7 @@ def assert_output(actual_output):
     actual_output = str(actual_output).zfill(5)
     print("Actual output : " + str(actual_output))
     f = open(OUTPUT_FILE_NAME, "r")
-    expected_output = f.readline()
+    expected_output = f.readline().strip()
     print("Expected output : " + str(expected_output))
     # assert actual_output == expected_output
     f.close()
@@ -337,8 +337,8 @@ def run_homework():
                    applicant.has_medical_condition)
     min_max = MinMax(spla, lahsa)
     first_applicant = min_max.first_move()
-    assert_output(first_applicant.id)
-    # write_result_to_output(first_applicant.id)
+    # assert_output(first_applicant.id)
+    write_result_to_output(first_applicant.id)
 
 
 if __name__ == "__main__":
