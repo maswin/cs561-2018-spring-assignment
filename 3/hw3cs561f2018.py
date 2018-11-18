@@ -1,7 +1,7 @@
 import numpy as np
 
-INPUT_FILE_NAME = "io/input1.txt"
-OUTPUT_FILE_NAME = "io/output1.txt"
+INPUT_FILE_NAME = "io/input2.txt"
+OUTPUT_FILE_NAME = "io/output2.txt"
 
 
 class DIRECTION:
@@ -123,7 +123,7 @@ class PolicyGenerator:
                     south_val = self._probability_summation(new_utility, (row, col), DIRECTION.SOUTH)
                     east_val = self._probability_summation(new_utility, (row, col), DIRECTION.EAST)
                     west_val = self._probability_summation(new_utility, (row, col), DIRECTION.WEST)
-                    max_util, policy[row][col] = max([north_val, south_val, west_val, east_val], key=lambda y: y[0])
+                    max_util, policy[row][col] = max([north_val, south_val, east_val, west_val], key=lambda y: y[0])
                     new_utility[row][col] = rewards[row][col] + (self.gamma * max_util)
                 else:
                     new_utility[row][col] = 99
@@ -179,14 +179,14 @@ class PolicyGenerator:
         return new_utility
 
     def _generate_new_policy(self, utility):
-        new_policy = np.ones((self.grid_size, self.grid_size), dtype=np.int8)
+        new_policy = self._get_initial_policy()
         for row in range(self.grid_size):
             for col in range(self.grid_size):
                 north_val = self._probability_summation(utility, (row, col), DIRECTION.NORTH)
                 south_val = self._probability_summation(utility, (row, col), DIRECTION.SOUTH)
                 east_val = self._probability_summation(utility, (row, col), DIRECTION.EAST)
                 west_val = self._probability_summation(utility, (row, col), DIRECTION.WEST)
-                new_policy[row, col] = max([north_val, south_val, east_val, west_val], key=lambda x: x[0])[1]
+                new_policy[row][col] = max([north_val, south_val, east_val, west_val], key=lambda x: x[0])[1]
 
         return new_policy
 
@@ -248,8 +248,8 @@ def run_homework():
         start_position = car_start_locations[car_index]
         end_position = car_terminal_locations[car_index]
         rewards = construct_reward_grid(grid_size, end_position, obstacles)
-        policy = policy_generator.generate_via_policy_method(rewards, end_position)
-        # policy = policy_generator.generate_via_value_iteration_method(rewards, end_position)
+        # policy = policy_generator.generate_via_policy_method(rewards, end_position)
+        policy = policy_generator.generate_via_value_iteration_method(rewards, end_position)
         money_collected = simulator.simulate(start_position, end_position, policy, rewards)
         ans.append(money_collected)
 
