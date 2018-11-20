@@ -1,8 +1,8 @@
 import numpy as np
 import time
 
-INPUT_FILE_NAME = "input.txt"
-OUTPUT_FILE_NAME = "output.txt"
+INPUT_FILE_NAME = "io/input2.txt"
+OUTPUT_FILE_NAME = "io/output2.txt"
 TOTAL_TIME = 180
 
 
@@ -97,7 +97,7 @@ class PolicyGenerator:
                     return False
         return True
 
-    def _probability_summation(self, old_utility, curr_pos, move):
+    def _probability_summation_with_direction(self, old_utility, curr_pos, move):
         (x, y) = DIRECTION.MOVE[move](curr_pos, self.grid_size)
         v1 = (0.7 * old_utility[x][y])
 
@@ -112,8 +112,23 @@ class PolicyGenerator:
 
         return (v1 + v2 + v3 + v4), move
 
-    def _generate_new_policy_and_utility(self, rewards, old_utility, end_position):
-        policy = self._get_initial_policy()
+    def _probability_summation(self, old_utility, curr_pos, move):
+        (x, y) = DIRECTION.MOVE[move](curr_pos, self.grid_size)
+        v1 = (0.7 * old_utility[x][y])
+
+        (x, y) = DIRECTION.MOVE[DIRECTION.TURN_LEFT[move]](curr_pos, self.grid_size)
+        v2 = (0.1 * old_utility[x][y])
+
+        (x, y) = DIRECTION.MOVE[DIRECTION.TURN_RIGHT[move]](curr_pos, self.grid_size)
+        v3 = (0.1 * old_utility[x][y])
+
+        (x, y) = DIRECTION.MOVE[DIRECTION.ABOVE_TURN[move]](curr_pos, self.grid_size)
+        v4 = (0.1 * old_utility[x][y])
+
+        return v1 + v2 + v3 + v4
+
+    def _generate_new_utility(self, rewards, old_utility, end_position):
+        # policy = self._get_initial_policy()
         new_utility = self._get_initial_utility()
         for row in range(self.grid_size):
             for col in range(self.grid_size):
@@ -122,22 +137,23 @@ class PolicyGenerator:
                     south_val = self._probability_summation(old_utility, (row, col), DIRECTION.SOUTH)
                     east_val = self._probability_summation(old_utility, (row, col), DIRECTION.EAST)
                     west_val = self._probability_summation(old_utility, (row, col), DIRECTION.WEST)
-                    max_util, policy[row][col] = max([west_val, east_val, south_val, north_val], key=lambda y: y[0])
+                    max_util = max(west_val, east_val, south_val, north_val)
                     new_utility[row][col] = rewards[row][col] + (self.gamma * max_util)
                 else:
                     new_utility[row][col] = 99
 
-        return policy, new_utility
+        return new_utility
 
     def generate_via_value_iteration_method(self, rewards, end_position, timer):
         old_utility = self._get_initial_utility()
         while True:
-            policy, new_utility = self._generate_new_policy_and_utility(rewards, old_utility, end_position)
+            new_utility = self._generate_new_utility(rewards, old_utility, end_position)
             # print new_utility
             # print_policy(policy)
             if self._is_converged(old_utility, new_utility) or timer.time_limit_exceeded():
                 break
             old_utility = new_utility
+        policy = self._generate_policy(new_utility)
         return policy
 
     def generate_via_policy_method(self, rewards, end_position, timer):
@@ -145,7 +161,7 @@ class PolicyGenerator:
         old_utility = self._get_initial_utility()
         while True:
             new_utility = self._generate_utility_for_given_policy(rewards, old_policy, old_utility, end_position)
-            new_policy = self._generate_new_policy(new_utility)
+            new_policy = self._generate_policy(new_utility)
             # print new_utility
             # print_policy(new_policy)
             if self._is_policy_unchanged(old_policy, new_policy) or timer.time_limit_exceeded():
@@ -158,14 +174,14 @@ class PolicyGenerator:
     def _generate_utility_for_given_policy(self, rewards, policy, old_utility, end_position):
         k = 0
         while True:
-            new_utility = self._generate_new_utility(rewards, policy, old_utility, end_position)
+            new_utility = self._generate_new_utility_with_policy(rewards, policy, old_utility, end_position)
             if self._is_converged(old_utility, new_utility) or k > 20:
                 break
             old_utility = new_utility
             k += 1
         return old_utility
 
-    def _generate_new_utility(self, rewards, policy, old_utility, end_position):
+    def _generate_new_utility_with_policy(self, rewards, policy, old_utility, end_position):
         new_utility = self._get_initial_utility()
         for row in range(self.grid_size):
             for col in range(self.grid_size):
@@ -177,15 +193,15 @@ class PolicyGenerator:
 
         return new_utility
 
-    def _generate_new_policy(self, utility):
+    def _generate_policy(self, utility):
         new_policy = self._get_initial_policy()
         for row in range(self.grid_size):
             for col in range(self.grid_size):
-                north_val = self._probability_summation(utility, (row, col), DIRECTION.NORTH)
-                south_val = self._probability_summation(utility, (row, col), DIRECTION.SOUTH)
-                east_val = self._probability_summation(utility, (row, col), DIRECTION.EAST)
-                west_val = self._probability_summation(utility, (row, col), DIRECTION.WEST)
-                new_policy[row][col] = max([north_val, south_val, east_val, west_val], key=lambda x: x[0])[1]
+                north_val = self._probability_summation_with_direction(utility, (row, col), DIRECTION.NORTH)
+                south_val = self._probability_summation_with_direction(utility, (row, col), DIRECTION.SOUTH)
+                east_val = self._probability_summation_with_direction(utility, (row, col), DIRECTION.EAST)
+                west_val = self._probability_summation_with_direction(utility, (row, col), DIRECTION.WEST)
+                new_policy[row][col] = max([west_val, east_val, south_val, north_val], key=lambda x: x[0])[1]
 
         return new_policy
 
@@ -267,7 +283,7 @@ def run_homework():
     ans = []
     time_limit = get_time_limit(number_of_cars)
     for car_index in range(number_of_cars):
-        # st = time.time()
+        st = time.time()
         start_position = car_start_locations[car_index]
         end_position = car_terminal_locations[car_index]
         rewards = construct_reward_grid(grid_size, end_position, obstacles)
@@ -276,10 +292,10 @@ def run_homework():
         policy = policy_generator.generate_via_value_iteration_method(rewards, end_position, timer)
         money_collected = simulator.simulate(start_position, end_position, policy, rewards)
         ans.append(money_collected)
-        # print "Time : " + str(time.time() - st)
+        print "Time : " + str(time.time() - st)
 
-    # assert_output(ans)
-    write_result_to_output(ans)
+    assert_output(ans)
+    # write_result_to_output(ans)
 
 
 if __name__ == "__main__":
