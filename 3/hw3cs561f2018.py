@@ -1,8 +1,8 @@
 import numpy as np
 import time
 
-INPUT_FILE_NAME = "io/input2.txt"
-OUTPUT_FILE_NAME = "io/output2.txt"
+INPUT_FILE_NAME = "io/input.txt"
+OUTPUT_FILE_NAME = "io/output.txt"
 TOTAL_TIME = 180
 
 
@@ -61,9 +61,9 @@ class Simulator:
                         if swerve[k] > 0.9:
                             move = DIRECTION.ABOVE_TURN[move]
                         else:
-                            move = DIRECTION.TURN_LEFT[move]
+                            move = DIRECTION.TURN_RIGHT[move]
                     else:
-                        move = DIRECTION.TURN_RIGHT[move]
+                        move = DIRECTION.TURN_LEFT[move]
                 current_position = DIRECTION.MOVE[move](current_position, self.grid_size)
                 this_trial_car_reward += reward[current_position[0]][current_position[1]]
                 k += 1
@@ -88,7 +88,8 @@ class PolicyGenerator:
         return [[DIRECTION.WEST] * self.grid_size for _ in range(self.grid_size)]
 
     def _get_initial_utility(self):
-        return [[0] * self.grid_size for _ in range(self.grid_size)]
+        return np.zeros((self.grid_size, self.grid_size), dtype=np.float64)
+        # return [[0] * self.grid_size for _ in range(self.grid_size)]
 
     def _is_converged(self, old_utility, new_utility):
         for row in range(self.grid_size):
@@ -137,7 +138,7 @@ class PolicyGenerator:
                     south_val = self._probability_summation(old_utility, (row, col), DIRECTION.SOUTH)
                     east_val = self._probability_summation(old_utility, (row, col), DIRECTION.EAST)
                     west_val = self._probability_summation(old_utility, (row, col), DIRECTION.WEST)
-                    max_util = max(west_val, east_val, south_val, north_val)
+                    max_util = max(north_val, south_val, east_val, west_val)
                     new_utility[row][col] = rewards[row][col] + (self.gamma * max_util)
                 else:
                     new_utility[row][col] = 99
@@ -201,7 +202,7 @@ class PolicyGenerator:
                 south_val = self._probability_summation_with_direction(utility, (row, col), DIRECTION.SOUTH)
                 east_val = self._probability_summation_with_direction(utility, (row, col), DIRECTION.EAST)
                 west_val = self._probability_summation_with_direction(utility, (row, col), DIRECTION.WEST)
-                new_policy[row][col] = max([west_val, east_val, south_val, north_val], key=lambda x: x[0])[1]
+                new_policy[row][col] = max([north_val, south_val, east_val, west_val], key=lambda x: x[0])[1]
 
         return new_policy
 
@@ -220,14 +221,17 @@ def assert_output(actual_output):
         print("Actual output : " + ouput)
         expected_output = f.readline().strip()
         print("Expected output : " + str(expected_output))
-        # assert ouput == expected_output
+        assert ouput == expected_output
     f.close()
 
 
 def get_input():
     def get_x_y(ff):
         positions = ff.readline().strip().split(",")
-        return int(positions[0]), int(positions[1])
+        return swap(int(positions[0]), int(positions[1]))
+
+    def swap(x, y):
+        return y, x
 
     f = open(INPUT_FILE_NAME, "r")
     grid_size = int(f.readline().strip())
