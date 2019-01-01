@@ -1,8 +1,8 @@
 import numpy as np
 import time
 
-INPUT_FILE_NAME = "io/input.txt"
-OUTPUT_FILE_NAME = "io/output.txt"
+INPUT_FILE_NAME = "input.txt"
+OUTPUT_FILE_NAME = "output.txt"
 TOTAL_TIME = 180
 
 
@@ -75,6 +75,7 @@ class PolicyGenerator:
     def __init__(self, grid_size):
         self.gamma = 0.9
         self.epsilon = 0.1
+        self.cut_off = self.epsilon * (1.0 - self.gamma) / self.gamma
         self.grid_size = grid_size
 
     def _is_policy_unchanged(self, old_policy, new_policy):
@@ -85,16 +86,16 @@ class PolicyGenerator:
         return True
 
     def _get_initial_policy(self):
-        return [[DIRECTION.WEST] * self.grid_size for _ in range(self.grid_size)]
+        return [[DIRECTION.NORTH] * self.grid_size for _ in range(self.grid_size)]
 
     def _get_initial_utility(self):
-        return np.zeros((self.grid_size, self.grid_size), dtype=np.float64)
-        # return [[0] * self.grid_size for _ in range(self.grid_size)]
+        # return np.zeros((self.grid_size, self.grid_size), dtype=np.float64)
+        return [[0.0] * self.grid_size for _ in range(self.grid_size)]
 
     def _is_converged(self, old_utility, new_utility):
         for row in range(self.grid_size):
             for col in range(self.grid_size):
-                if abs(old_utility[row][col] - new_utility[row][col]) > self.epsilon:
+                if abs(old_utility[row][col] - new_utility[row][col]) > self.cut_off:
                     return False
         return True
 
@@ -105,10 +106,10 @@ class PolicyGenerator:
         (x, y) = DIRECTION.MOVE[DIRECTION.TURN_LEFT[move]](curr_pos, self.grid_size)
         v2 = (0.1 * old_utility[x][y])
 
-        (x, y) = DIRECTION.MOVE[DIRECTION.TURN_RIGHT[move]](curr_pos, self.grid_size)
+        (x, y) = DIRECTION.MOVE[DIRECTION.ABOVE_TURN[move]](curr_pos, self.grid_size)
         v3 = (0.1 * old_utility[x][y])
 
-        (x, y) = DIRECTION.MOVE[DIRECTION.ABOVE_TURN[move]](curr_pos, self.grid_size)
+        (x, y) = DIRECTION.MOVE[DIRECTION.TURN_RIGHT[move]](curr_pos, self.grid_size)
         v4 = (0.1 * old_utility[x][y])
 
         return (v1 + v2 + v3 + v4), move
@@ -221,7 +222,7 @@ def assert_output(actual_output):
         print("Actual output : " + ouput)
         expected_output = f.readline().strip()
         print("Expected output : " + str(expected_output))
-        assert ouput == expected_output
+        # assert ouput == expected_output
     f.close()
 
 
@@ -287,7 +288,7 @@ def run_homework():
     ans = []
     time_limit = get_time_limit(number_of_cars)
     for car_index in range(number_of_cars):
-        st = time.time()
+        # st = time.time()
         start_position = car_start_locations[car_index]
         end_position = car_terminal_locations[car_index]
         rewards = construct_reward_grid(grid_size, end_position, obstacles)
@@ -296,10 +297,10 @@ def run_homework():
         policy = policy_generator.generate_via_value_iteration_method(rewards, end_position, timer)
         money_collected = simulator.simulate(start_position, end_position, policy, rewards)
         ans.append(money_collected)
-        print "Time : " + str(time.time() - st)
+        # print "Time : " + str(time.time() - st)
 
-    assert_output(ans)
-    # write_result_to_output(ans)
+    # assert_output(ans)
+    write_result_to_output(ans)
 
 
 if __name__ == "__main__":
